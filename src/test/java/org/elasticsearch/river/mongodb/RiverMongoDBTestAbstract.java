@@ -159,7 +159,7 @@ public abstract class RiverMongoDBTestAbstract {
         protected IRuntimeConfig newRuntimeConfig() {
             return newRuntimeConfigBuilder()
                     .defaults(Command.MongoD)
-                    .processOutput(ProcessOutput.getDefaultInstance(configKey))
+                    .processOutput(ProcessOutput.getDefaultInstanceSilent())
                     .build();
         }
     }
@@ -238,6 +238,11 @@ public abstract class RiverMongoDBTestAbstract {
     @DataProvider(name = "onlyVanillaMongo")
     public static Object[][] onlyVanillaMongo() {
         return new Object[][] {{ ExecutableType.VANILLA }};
+    }
+
+    @DataProvider(name = "onlyTokuMX")
+    public static Object[][] onlyTokuMX() {
+        return new Object[][] {{ ExecutableType.TOKUMX }};
     }
 
     @BeforeSuite
