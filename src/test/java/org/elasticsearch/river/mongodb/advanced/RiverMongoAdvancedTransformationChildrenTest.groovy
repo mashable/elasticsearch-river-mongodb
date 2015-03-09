@@ -113,7 +113,7 @@ class RiverMongoAdvancedTransformationChildrenTest extends RiverMongoDBTestAbstr
             Thread.sleep(WAIT)
             refreshIndex(index)
             response = node.client().prepareSearch(index).setQuery(QueryBuilders.queryString(parentId).defaultField("_parent")).addSort("text", ASC).execute().actionGet()
-            logger.debug("SearchResponse $response")
+            logger.debug("SearchResponse $response, {}", response.hits.totalHits)
             // Asserts data
             assert response.hits.totalHits == 3
             hits = response.hits.hits

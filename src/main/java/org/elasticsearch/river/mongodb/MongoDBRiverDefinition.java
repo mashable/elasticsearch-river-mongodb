@@ -159,6 +159,8 @@ public class MongoDBRiverDefinition {
     // bulk
     private final Bulk bulk;
 
+    public Boolean isTokumx;
+
     public static class Builder {
         // river
         private String riverName;
