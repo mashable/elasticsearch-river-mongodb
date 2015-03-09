@@ -99,7 +99,7 @@ public class RiverMongoStartFromLastTimestampTest extends RiverMongoDBTestAbstra
             DBObject dbObject1 = new BasicDBObject(ImmutableMap.of("name", "Foo"));
             WriteResult result1 = mongoCollection.insert(dbObject1);
             logger.info("WriteResult: {}", result1.toString());
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             // - Should have the document itself
             Map<String, Object> esObject1 = getSource(client, getIndex(), definition.getTypeName(), dbObject1.get("_id").toString());
@@ -111,13 +111,13 @@ public class RiverMongoStartFromLastTimestampTest extends RiverMongoDBTestAbstra
 
             // Stop the river now
             MongoDBRiverHelper.setRiverStatus(client, getRiver(), Status.STOPPED);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             // Add another object to the database
             DBObject dbObject2 = new BasicDBObject(ImmutableMap.of("name", "Bar"));
             WriteResult result2 = mongoCollection.insert(dbObject2);
             logger.info("WriteResult: {}", result2.toString());
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             // Start the river
             MongoDBRiverHelper.setRiverStatus(client, getRiver(), Status.RUNNING);

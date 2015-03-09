@@ -99,9 +99,8 @@ public class RiverMongoGroovyScriptTest extends RiverMongoDBTestAbstract {
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             dbObject.put("test", "testIgnoreScript");
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
 
             IndicesExistsResponse response = getNode().client().admin().indices().prepareExists(getIndex()).get();
             assertThat(response.isExists(), equalTo(true));
@@ -130,10 +129,9 @@ public class RiverMongoGroovyScriptTest extends RiverMongoDBTestAbstract {
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             dbObject.put("test", "testUpdateAttribute");
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
 
             IndicesExistsResponse response = getNode().client().admin().indices().prepareExists(getIndex()).get();
             assertThat(response.isExists(), equalTo(true));
@@ -171,10 +169,10 @@ public class RiverMongoGroovyScriptTest extends RiverMongoDBTestAbstract {
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             dbObject.put("test", "testDeleteDocument");
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
 
             IndicesExistsResponse response = getNode().client().admin().indices().prepareExists(getIndex()).get();
             assertThat(response.isExists(), equalTo(true));
@@ -188,8 +186,7 @@ public class RiverMongoGroovyScriptTest extends RiverMongoDBTestAbstract {
             dbObject.put("to_be_deleted", Boolean.TRUE);
             mongoCollection.save(dbObject);
 
-            Thread.sleep(wait);
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
 
             CountResponse countResponse = getNode().client().count(countRequest(getIndex())).get();
             logger.info("Document count: {}", countResponse.getCount());

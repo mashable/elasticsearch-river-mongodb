@@ -100,9 +100,9 @@ public class RiverMongoTwoGroovyScriptTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoDB.getCollection(collection1).insert(dbObject);
-            Thread.sleep(wait);
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(index1);
+            waitForRiverReplication(index1);
+
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices().exists(new IndicesExistsRequest(index1));
             assertThat(response.actionGet().isExists(), equalTo(true));
@@ -114,10 +114,10 @@ public class RiverMongoTwoGroovyScriptTest extends RiverMongoDBTestAbstract {
             mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             dbObject = (DBObject) JSON.parse(mongoDocument);
             result = mongoDB.getCollection(collection2).insert(dbObject);
-            Thread.sleep(wait);
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(index2);
+            waitForRiverReplication(index2);
+
 
             response = getNode().client().admin().indices().exists(new IndicesExistsRequest(index2));
             assertThat(response.actionGet().isExists(), equalTo(true));
@@ -131,8 +131,8 @@ public class RiverMongoTwoGroovyScriptTest extends RiverMongoDBTestAbstract {
             dbObject.put("to_be_deleted", Boolean.TRUE);
             mongoDB.getCollection(collection2).save(dbObject);
 
-            Thread.sleep(wait);
-            refreshIndex(index2);
+            waitForRiverReplication(index2);
+
 
             countResponse = getNode().client().count(countRequest(index2)).actionGet();
             logger.info("Document count: {}", countResponse.getCount());

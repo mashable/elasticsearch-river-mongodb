@@ -85,11 +85,10 @@ public class RiverMongoExcludeFieldsTest extends RiverMongoDBTestAbstract {
             dbObject.put("exclude-field-2", System.currentTimeMillis());
             dbObject.put("include-field-1", System.currentTimeMillis());
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             String id = dbObject.get("_id").toString();
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(getIndex())).actionGet().isExists(),
                     equalTo(true));
-            refreshIndex();
 
             SearchResponse sr = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString(id).defaultField("_id"))
                     .get();
@@ -107,7 +106,7 @@ public class RiverMongoExcludeFieldsTest extends RiverMongoDBTestAbstract {
             dbObject = mongoCollection.findOne(new BasicDBObject("_id", new ObjectId(id)));
             dbObject.put("include-field-2", System.currentTimeMillis());
             mongoCollection.save(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             sr = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString(id).defaultField("_id")).get();
             logger.debug("SearchResponse {}", sr.toString());

@@ -96,13 +96,14 @@ public class RiverMongoDBTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
+
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(getIndex()));
             assertThat(response.actionGet().isExists(), equalTo(true));
-            refreshIndex();
+
             SearchRequest search = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString("Richard").defaultField("name"))
                     .request();
             SearchResponse searchResponse = getNode().client().search(search).actionGet();
@@ -116,8 +117,7 @@ public class RiverMongoDBTest extends RiverMongoDBTestAbstract {
 
             mongoCollection.remove(dbObject, WriteConcern.REPLICAS_SAFE);
 
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
             getResponse = getNode().client().get(getRequest(getIndex()).id(id)).get();
             assertThat(getResponse.isExists(), equalTo(false));
 //            countResponse = getNode().client().count(countRequest(getIndex()).query(fieldQuery("_id", id))).actionGet();

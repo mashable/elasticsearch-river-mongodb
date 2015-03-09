@@ -98,8 +98,7 @@ public class RiverMongoWithGridFSInitialImportTest extends RiverMongoGridFSTestA
             Assert.assertEquals(out.getId(), in.getId());
 
             createRiver();
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
 
             CountResponse countResponse = getNode().client().count(countRequest(getIndex())).actionGet();
             logger.debug("Index total count: {}", countResponse.getCount());
@@ -130,8 +129,7 @@ public class RiverMongoWithGridFSInitialImportTest extends RiverMongoGridFSTestA
             logger.debug("GridFS from findOne: {}", out);
             Assert.assertEquals(out.getId(), in.getId());
 
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
 
             countResponse = getNode().client().count(countRequest(getIndex())).actionGet();
             logger.debug("Index total count: {}", countResponse.getCount());
@@ -161,8 +159,7 @@ public class RiverMongoWithGridFSInitialImportTest extends RiverMongoGridFSTestA
                 cursor.close();
             }
 
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
 
             getResponse = getNode().client().get(getRequest(getIndex()).id(id)).get();
             logger.debug("Get request for id {}: {}", id, getResponse.isExists());

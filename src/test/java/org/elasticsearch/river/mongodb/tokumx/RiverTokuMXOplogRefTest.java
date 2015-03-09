@@ -58,11 +58,11 @@ public class RiverTokuMXOplogRefTest extends RiverTokuMXTestAbstract {
     @Test
     public void testOplogRefs() throws InterruptedException {
         mongoCollection.insert(buildLargeObject(), WriteConcern.REPLICAS_SAFE);
-        Thread.sleep(wait);
+        waitForRiverReplication();
         ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                 .exists(new IndicesExistsRequest(getIndex()));
         assertThat(response.actionGet().isExists(), equalTo(true));
-        refreshIndex();
+
         CountResponse countResponse = getNode().client().count(countRequest(getIndex())).actionGet();
         assertThat(countResponse.getCount(), Matchers.equalTo(1L));
         try (DBCursor cursor = mongoDB.getSisterDB(LOCAL_DATABASE_NAME).getCollection(OPLOG_COLLECTION)

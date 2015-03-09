@@ -88,8 +88,7 @@ public class RiverMongoCollectionWithDot extends RiverMongoDBTestAbstract {
             String id = dbObject.get("_id").toString();
 
             createRiver(database, collection);
-            Thread.sleep(wait);
-            refreshIndex(collection);
+            waitForRiverReplication(collection);
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(collection));
@@ -101,8 +100,7 @@ public class RiverMongoCollectionWithDot extends RiverMongoDBTestAbstract {
 
             mongoCollection.remove(dbObject, WriteConcern.REPLICAS_SAFE);
 
-            Thread.sleep(wait);
-            refreshIndex(collection);
+            waitForRiverReplication(collection);
             getResponse = getNode().client().get(getRequest(collection).id(id)).get();
             assertThat(getResponse.isExists(), equalTo(false));
 
@@ -126,22 +124,21 @@ public class RiverMongoCollectionWithDot extends RiverMongoDBTestAbstract {
             createRiver(database, collection);
             DBObject dbObject  = new BasicDBObject("name", "richard-" + timestamp);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication(collection);
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
             logger.info("dbObject: {}", dbObject.toString());
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(collection));
             assertThat(response.actionGet().isExists(), equalTo(true));
-            refreshIndex(collection);
+
             logger.info("Request: [{}] - count: [{}]", getRequest(collection).id(id), getNode().client().count(countRequest(collection)).get().getCount());
             GetResponse getResponse = getNode().client().get(getRequest(collection).id(id)).get();
             assertThat(getResponse.isExists(), equalTo(true));
 
             mongoCollection.remove(dbObject, WriteConcern.REPLICAS_SAFE);
 
-            Thread.sleep(wait);
-            refreshIndex(collection);
+            waitForRiverReplication(collection);
             getResponse = getNode().client().get(getRequest(collection).id(id)).get();
             assertThat(getResponse.isExists(), equalTo(false));
 

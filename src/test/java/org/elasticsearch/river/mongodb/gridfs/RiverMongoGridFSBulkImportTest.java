@@ -129,8 +129,7 @@ public class RiverMongoGridFSBulkImportTest extends RiverMongoGridFSTestAbstract
         CountResponse countResponse;
 
         while (true) {
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
             countResponse = getNode().client().count(countRequest(getIndex())).actionGet();
             logger.debug("Index total count: {}", countResponse.getCount());
             if (countResponse.getCount() == count) {
@@ -151,9 +150,7 @@ public class RiverMongoGridFSBulkImportTest extends RiverMongoGridFSTestAbstract
         for (String id : ids) {
             gridFS.remove(new ObjectId(id));
         }
-
-        Thread.sleep(wait);
-        refreshIndex();
+        waitForRiverReplication();
 
         countResponse = getNode().client().count(countRequest(getIndex())).actionGet();
         logger.debug("Count after delete request: {}", countResponse.getCount());

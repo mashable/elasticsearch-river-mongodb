@@ -61,12 +61,11 @@ public class RiverTokuMXOplogPKTest extends RiverTokuMXTestAbstract {
         DBObject update = (DBObject) JSON.parse("{$set: {value: 1}}");
         mongoCollection.update(key, update);
 
-        Thread.sleep(wait);
+        waitForRiverReplication();
 
         ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices().exists(new IndicesExistsRequest(getIndex()));
         assertThat(response.actionGet().isExists(), equalTo(true));
 
-        refreshIndex();
         SearchRequest search = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString("1").defaultField("value"))
                 .request();
 

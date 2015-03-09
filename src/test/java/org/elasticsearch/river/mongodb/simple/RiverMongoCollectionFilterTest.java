@@ -102,12 +102,11 @@ public class RiverMongoCollectionFilterTest extends RiverMongoDBTestAbstract {
             Thread.sleep(wait);
 
             createRiver(filter);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(getIndex()));
             assertThat(response.actionGet().isExists(), equalTo(true));
-            refreshIndex();
             assertThat(getNode().client().count(countRequest(getIndex())).actionGet().getCount(), equalTo(1l));
         } catch (Throwable t) {
             logger.error("CollectionFilter failed.", t);

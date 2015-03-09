@@ -83,7 +83,7 @@ public class RiverMongoIncludeCollectionTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(getIndex())).actionGet().isExists(),
                     equalTo(true));
@@ -91,8 +91,6 @@ public class RiverMongoIncludeCollectionTest extends RiverMongoDBTestAbstract {
                     .isExists(), equalTo(true));
 
             String collectionName = mongoCollection.getName();
-
-            refreshIndex();
 
             CountResponse countResponse = getNode().client()
                     .prepareCount(getIndex()).setQuery(QueryBuilders.queryString(collectionName).defaultField(includeCollectionOption)).get();

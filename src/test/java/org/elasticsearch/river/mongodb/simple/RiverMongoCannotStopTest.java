@@ -83,13 +83,13 @@ public class RiverMongoCannotStopTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(getIndex()));
             assertThat(response.actionGet().isExists(), equalTo(true));
-            refreshIndex();
+
             SearchRequest search = getNode().client().prepareSearch(getIndex()).setQuery(new QueryStringQueryBuilder("Richard").defaultField("name"))
                     .request();
             SearchResponse searchResponse = getNode().client().search(search).actionGet();

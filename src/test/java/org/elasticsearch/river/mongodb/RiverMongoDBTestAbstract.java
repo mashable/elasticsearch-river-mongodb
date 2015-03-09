@@ -615,6 +615,16 @@ public abstract class RiverMongoDBTestAbstract {
         return index;
     }
 
+
+    protected void waitForRiverReplication() throws InterruptedException {
+        waitForRiverReplication(index);
+    }
+    protected void waitForRiverReplication(String idx) throws InterruptedException {
+        Thread.sleep(1000);
+        if(idx != null)
+            refreshIndex(idx);
+    }
+
     /** Print a more useful string for each instance, in TestNG reports. */
     @Override
     public String toString() {

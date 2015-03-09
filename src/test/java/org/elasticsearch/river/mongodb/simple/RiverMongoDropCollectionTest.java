@@ -95,8 +95,7 @@ public class RiverMongoDropCollectionTest extends RiverMongoDBTestAbstract {
             mongoCollection.drop();
             Thread.sleep(wait);
             assertThat(mongoDB.collectionExists(collectionName), equalTo(false));
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
 
             if (!dropCollectionOption) {
                 countRequest = getNode().client().count(countRequest(getIndex())).actionGet().getCount();
@@ -130,12 +129,13 @@ public class RiverMongoDropCollectionTest extends RiverMongoDBTestAbstract {
             String collectionName = mongoCollection.getName();
             long countRequest;
             mongoCollection.drop();
-            for(int i = 0; i < 5; i++)
-                if(!mongoDB.collectionExists(collectionName)) break;
+            for(int i = 0; i < 5; i++) {
+                if (!mongoDB.collectionExists(collectionName)) break;
                 Thread.sleep(wait);
+            }
             assertThat(mongoDB.collectionExists(collectionName), equalTo(false));
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
+
             if (!dropCollectionOption) {
                 countRequest = getNode().client().count(countRequest(getIndex())).actionGet().getCount();
                 assertThat(countRequest, greaterThan(0L));
@@ -147,7 +147,7 @@ public class RiverMongoDropCollectionTest extends RiverMongoDBTestAbstract {
             String value = String.valueOf(System.currentTimeMillis());
             dbObject.put("attribute1", value);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(getIndex())).actionGet().isExists(),
                     equalTo(true));
             assertThat(getNode().client().admin().indices().prepareTypesExists(getIndex()).setTypes(getDatabase()).execute().actionGet()
@@ -181,8 +181,7 @@ public class RiverMongoDropCollectionTest extends RiverMongoDBTestAbstract {
             mongoDB.dropDatabase();
             Thread.sleep(wait);
             assertThat(databaseExists(getDatabase()), equalTo(false));
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
 
             if (!dropCollectionOption) {
                 countRequest = getNode().client().count(countRequest(getIndex())).actionGet().getCount();
@@ -197,7 +196,7 @@ public class RiverMongoDropCollectionTest extends RiverMongoDBTestAbstract {
             String value = String.valueOf(System.currentTimeMillis());
             dbObject.put("attribute1", value);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(getIndex())).actionGet().isExists(),
                     equalTo(true));
             assertThat(getNode().client().admin().indices().prepareTypesExists(getIndex()).setTypes(getDatabase()).execute().actionGet()

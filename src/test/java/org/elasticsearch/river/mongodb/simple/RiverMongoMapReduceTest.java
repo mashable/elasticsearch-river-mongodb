@@ -87,8 +87,7 @@ public class RiverMongoMapReduceTest extends RiverMongoDBTestAbstract {
                 mongoCollection.insert(object);
                 Thread.sleep(200);
             }
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
             assertThat(executableType.name() + " inputCollection is indexed",
                     getNode().client().admin().indices().prepareTypesExists(getIndex()).setTypes(mongoCollection.getName()).get()
                             .isExists(), equalTo(true));
@@ -101,8 +100,7 @@ public class RiverMongoMapReduceTest extends RiverMongoDBTestAbstract {
 
             MapReduceOutput out = mongoCollection.mapReduce(cmd);
             logger.debug("MapReduceOutput: {}", out);
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
             assertThat(executableType.name() + " outputCollection is indexed",
                     getNode().client().admin().indices().prepareTypesExists(getIndex()).setTypes(outputCollection).get().isExists(),
                     equalTo(true));

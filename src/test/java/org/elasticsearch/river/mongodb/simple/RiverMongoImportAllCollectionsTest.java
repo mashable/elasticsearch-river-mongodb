@@ -80,29 +80,25 @@ public class RiverMongoImportAllCollectionsTest extends RiverMongoDBTestAbstract
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex();
             Assert.assertNotNull(getNode().client().prepareGet(getIndex(), mongoCollection.getName(), id).get().getId());
 
             DBObject dbObject2 = (DBObject) JSON.parse(mongoDocument);
             WriteResult result2 = mongoCollection2.insert(dbObject2);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             String id2 = dbObject2.get("_id").toString();
             logger.info("WriteResult: {}", result2.toString());
-            refreshIndex();
             Assert.assertNotNull(getNode().client().prepareGet(getIndex(), mongoCollection2.getName(), id2).get().getId());
 
             mongoCollection.remove(dbObject);
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
             assertThat(getNode().client().prepareCount(getIndex()).setTypes(mongoCollection.getName()).setQuery(QueryBuilders.queryString(id).defaultField("_id"))
                     .get().getCount(), equalTo(0L));
 
             mongoCollection2.remove(dbObject2);
-            Thread.sleep(wait);
-            refreshIndex();
+            waitForRiverReplication();
             assertThat(getNode().client().prepareCount(getIndex()).setTypes(mongoCollection2.getName()).setQuery(QueryBuilders.queryString(id2).defaultField("_id"))
                     .get().getCount(), equalTo(0L));
         } catch (Throwable t) {

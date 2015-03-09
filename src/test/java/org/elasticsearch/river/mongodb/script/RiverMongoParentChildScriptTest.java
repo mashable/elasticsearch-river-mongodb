@@ -128,10 +128,9 @@ public class RiverMongoParentChildScriptTest extends RiverMongoDBTestAbstract {
             String authorDocument = copyToStringFromClasspath(AUTHOR_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(authorDocument);
             WriteResult result = mongoAuthorsCollection.insert(dbObject);
-            Thread.sleep(wait);
             String authorId = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(INDEX_NAME);
+            waitForRiverReplication(INDEX_NAME);
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(INDEX_NAME));
@@ -146,10 +145,9 @@ public class RiverMongoParentChildScriptTest extends RiverMongoDBTestAbstract {
             String book1Document = copyToStringFromClasspath(BOOK1_DOCUMENT_JSON);
             dbObject = (DBObject) JSON.parse(book1Document);
             result = mongoBooksCollection.insert(dbObject);
-            Thread.sleep(wait);
             String bookId = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(INDEX_NAME);
+            waitForRiverReplication(INDEX_NAME);
 
             response = getNode().client().admin().indices().exists(new IndicesExistsRequest(INDEX_NAME));
             assertThat(response.actionGet().isExists(), equalTo(true));

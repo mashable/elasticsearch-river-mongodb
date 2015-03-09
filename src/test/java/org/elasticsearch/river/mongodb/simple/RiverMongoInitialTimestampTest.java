@@ -87,11 +87,9 @@ public class RiverMongoInitialTimestampTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication(index);
 
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(index)).actionGet().isExists(), equalTo(true));
-
-            refreshIndex(index);
 
             CountResponse countResponse = getNode().client().count(countRequest(index)).actionGet();
             assertThat(countResponse.getCount(), equalTo(0L));
@@ -103,13 +101,11 @@ public class RiverMongoInitialTimestampTest extends RiverMongoDBTestAbstract {
 
             dbObject = (DBObject) JSON.parse(mongoDocument);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication(index);
 
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(index)).actionGet().isExists(), equalTo(true));
             assertThat(getNode().client().admin().indices().prepareTypesExists(index).setTypes(getDatabase()).execute().actionGet()
                     .isExists(), equalTo(true));
-
-            refreshIndex(index);
 
             countResponse = getNode().client().count(countRequest(index)).actionGet();
             assertThat(countResponse.getCount(), equalTo(1L));
@@ -140,11 +136,9 @@ public class RiverMongoInitialTimestampTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication(index);
 
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(index)).actionGet().isExists(), equalTo(true));
-
-            refreshIndex(index);
 
             CountResponse countResponse = getNode().client().count(countRequest(index)).actionGet();
             assertThat(countResponse.getCount(), equalTo(0L));
@@ -156,13 +150,11 @@ public class RiverMongoInitialTimestampTest extends RiverMongoDBTestAbstract {
 
             dbObject = (DBObject) JSON.parse(mongoDocument);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication(index);
 
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(index)).actionGet().isExists(), equalTo(true));
             assertThat(getNode().client().admin().indices().prepareTypesExists(index).setTypes(getDatabase()).execute().actionGet()
                     .isExists(), equalTo(true));
-
-            refreshIndex(index);
 
             countResponse = getNode().client().count(countRequest(index)).actionGet();
             assertThat(countResponse.getCount(), equalTo(1L));

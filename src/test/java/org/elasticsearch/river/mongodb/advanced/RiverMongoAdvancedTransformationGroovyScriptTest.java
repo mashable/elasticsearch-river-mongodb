@@ -90,9 +90,8 @@ public class RiverMongoAdvancedTransformationGroovyScriptTest extends RiverMongo
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(index);
+            waitForRiverReplication(index);
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices().exists(new IndicesExistsRequest(index));
             assertThat(response.actionGet().isExists(), equalTo(true));

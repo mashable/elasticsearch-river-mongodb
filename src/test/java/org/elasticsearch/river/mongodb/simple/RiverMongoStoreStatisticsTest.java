@@ -60,23 +60,19 @@ public class RiverMongoStoreStatisticsTest extends RiverMongoDBTestAbstract {
             DBObject dbObject1 = new BasicDBObject(ImmutableMap.of("name", "Richard"));
             WriteResult result1 = mongoCollection.insert(dbObject1);
             logger.info("WriteResult: {}", result1.toString());
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(getIndex()));
             assertThat(response.actionGet().isExists(), equalTo(true));
-            refreshIndex();
+
             assertThat(getNode().client().count(countRequest(getIndex())).actionGet().getCount(), equalTo(1l));
-
             assertThat(getNode().client().admin().indices().prepareExists(storeStatsIndex).get().isExists(), equalTo(true));
-
             assertThat(getNode().client().admin().indices().prepareTypesExists(storeStatsIndex).setTypes(storeStatsType).get().isExists(),
                     equalTo(true));
 
             deleteRiver();
             createRiver();
-
-            Thread.sleep(wait);
         } catch (Throwable t) {
             logger.error("testStoreStatistics failed.", t);
             t.printStackTrace();

@@ -56,14 +56,12 @@ class RiverMongoDBGroovyTest extends RiverMongoDBTestAbstract {
 			def dbObject = new BasicDBObject(document)
 			def result = dbCollection.insert(dbObject)
 			logger.info("WriteResult: $result")
-			Thread.sleep(WAIT)
+			waitForRiverReplication()
 
-			// Assert index exists
+            // Assert index exists
 			def request = new IndicesExistsRequest(index)
 			assert node.client().admin().indices().exists(request).actionGet().isExists() == true
 
-			// Search data by parent
-			refreshIndex()
 			def id = dbObject.get("_id").toString()
 			def response = node.client().prepareSearch(index).setQuery(QueryBuilders.queryString(id).defaultField("_id")).execute().actionGet()
 			logger.debug("SearchResponse $response")

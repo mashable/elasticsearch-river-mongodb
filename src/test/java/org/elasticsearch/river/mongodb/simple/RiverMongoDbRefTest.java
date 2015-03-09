@@ -68,14 +68,14 @@ public class RiverMongoDbRefTest extends RiverMongoDBTestAbstract {
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
 
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             String id = dbObject.get("_id").toString();
             String categoryId = ((DBRef) dbObject.get("category")).getId().toString();
             logger.info("WriteResult: {}", result.toString());
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(getIndex()));
             assertThat(response.actionGet().isExists(), equalTo(true));
-            refreshIndex();
+
             SearchRequest search = getNode().client().prepareSearch(getIndex())
                     .setQuery(QueryBuilders.queryString(categoryId).defaultField("category.id")).request();
             SearchResponse searchResponse = getNode().client().search(search).actionGet();
@@ -86,13 +86,6 @@ public class RiverMongoDbRefTest extends RiverMongoDBTestAbstract {
                     .request();
             searchResponse = getNode().client().search(search).actionGet();
             assertThat(searchResponse.getHits().getTotalHits(), equalTo(1l));
-
-            // search =
-            // getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.geoShapeQuery("location",
-            // new GeoCircle(new Point, 20.0)))
-            // .request();
-            // searchResponse = getNode().client().search(search).actionGet();
-            // assertThat(searchResponse.getHits().getTotalHits(), equalTo(1l));
 
         } catch (Throwable t) {
             logger.error("simpleBSONObject failed.", t);

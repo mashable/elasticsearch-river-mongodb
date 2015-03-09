@@ -84,11 +84,10 @@ public class RiverMongoIncludeFieldsTest extends RiverMongoDBTestAbstract {
             dbObject.put("include-field-2", System.currentTimeMillis());
             dbObject.put("field-3", System.currentTimeMillis());
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
             String id = dbObject.get("_id").toString();
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(getIndex())).actionGet().isExists(),
                     equalTo(true));
-            refreshIndex();
 
             SearchResponse sr = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString(id).defaultField("_id"))
                     .execute().actionGet();
@@ -106,7 +105,7 @@ public class RiverMongoIncludeFieldsTest extends RiverMongoDBTestAbstract {
             dbObject = mongoCollection.findOne(new BasicDBObject("_id", new ObjectId(id)));
             dbObject.put("field-4", System.currentTimeMillis());
             mongoCollection.save(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             sr = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString(id).defaultField("_id")).execute()
                     .actionGet();

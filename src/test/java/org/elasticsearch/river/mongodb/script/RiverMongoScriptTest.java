@@ -88,9 +88,9 @@ public class RiverMongoScriptTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
+
 
             assertThat(getNode().client().admin().indices().prepareExists(getIndex()).get().isExists(), equalTo(true));
             CountResponse countResponse = getNode().client().count(countRequest(getIndex())).actionGet();
@@ -121,10 +121,10 @@ public class RiverMongoScriptTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
+
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(getIndex()));
@@ -167,10 +167,10 @@ public class RiverMongoScriptTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
+
 
             ActionFuture<IndicesExistsResponse> response = getNode().client().admin().indices()
                     .exists(new IndicesExistsRequest(getIndex()));
@@ -208,10 +208,10 @@ public class RiverMongoScriptTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(index);
+            waitForRiverReplication(index);
+
 
             assertThat(getNode().client().admin().indices().prepareExists(index).get().isExists(), equalTo(true));
 
@@ -246,10 +246,9 @@ public class RiverMongoScriptTest extends RiverMongoDBTestAbstract {
             String mongoDocument = copyToStringFromClasspath(TEST_SIMPLE_MONGODB_DOCUMENT_JSON);
             DBObject dbObject = (DBObject) JSON.parse(mongoDocument);
             WriteResult result = mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
             String id = dbObject.get("_id").toString();
             logger.info("WriteResult: {}", result.toString());
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
 
             assertThat(getNode().client().admin().indices().prepareExists(getIndex()).get().isExists(), equalTo(true));
 
@@ -263,8 +262,8 @@ public class RiverMongoScriptTest extends RiverMongoDBTestAbstract {
             dbObject.put("to_be_deleted", Boolean.TRUE);
             mongoCollection.save(dbObject);
 
-            Thread.sleep(wait);
-            refreshIndex(getIndex());
+            waitForRiverReplication(getIndex());
+
 
             CountResponse countResponse = getNode().client().count(countRequest(getIndex())).actionGet();
             logger.info("Document count: {}", countResponse.getCount());
