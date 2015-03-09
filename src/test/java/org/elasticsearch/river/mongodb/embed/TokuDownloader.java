@@ -35,7 +35,6 @@ public class TokuDownloader implements IDownloader {
   static final int BUFFER_LENGTH = 1024 * 8 * 8;
   static final int READ_COUNT_MULTIPLIER = 100;
   private static Logger logger = Logger.getLogger(ArtifactStore.class.getName());
-  private static final Pattern REFRESH_HEADER_PATTERN = Pattern.compile("^\\d+; url=(.*)");
 
   public TokuDownloader() {
 
@@ -51,33 +50,10 @@ public class TokuDownloader implements IDownloader {
     IProgressListener progress = runtime.getProgressListener();
     progress.start(progressLabel);
 
-    // First get PHPSESSID cookie from download URL
     ITimeoutConfig timeoutConfig = runtime.getTimeoutConfig();
 
     URL url = new URL(getDownloadUrl(runtime, distribution));
-    logger.fine("Distro URL: " + url);
     HttpURLConnection openConnection = (HttpURLConnection) url.openConnection();
-    openConnection.setRequestProperty("User-Agent", runtime.getUserAgent());
-    openConnection.setConnectTimeout(timeoutConfig.getConnectionTimeout());
-    openConnection.setReadTimeout(runtime.getTimeoutConfig().getReadTimeout());
-    openConnection.setInstanceFollowRedirects(false);
-
-    openConnection.getContent(); // we only care about the cookies, not the redirect page contents
-    List<HttpCookie> cookies = HttpCookie.parse(openConnection.getHeaderField("Set-Cookie"));
-    logger.fine("Cookies fetched from distro URL (before redirects): " + cookies);
-    while (("" + openConnection.getResponseCode()).startsWith("30")) {
-      url = new URL(url, openConnection.getHeaderField("Location"));
-      logger.finest("following redirect to: " + url);
-      openConnection = (HttpURLConnection) url.openConnection();
-      openConnection.setRequestProperty("User-Agent", runtime.getUserAgent());
-      openConnection.setConnectTimeout(timeoutConfig.getConnectionTimeout());
-      openConnection.setReadTimeout(runtime.getTimeoutConfig().getReadTimeout());
-      openConnection.setInstanceFollowRedirects(false);
-      openConnection.getContent();
-    }
-    logger.finest("Headers returned from distro URL (after following redirects): " + openConnection.getHeaderFields());
-    String refresh = openConnection.getHeaderField("Refresh");
-    openConnection.getInputStream().close();
 
     // Then fetch actual file, using the received cookies
     File ret = Files.createTempFile(PropertyOrPlatformTempDir.defaultInstance(),
@@ -87,58 +63,36 @@ public class TokuDownloader implements IDownloader {
 
       BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(ret));
 
-      URL url2 = new URL("http://www.tokutek.com/download.php?df=1");
-      if (refresh != null && !refresh.isEmpty()) {
-        Matcher m = REFRESH_HEADER_PATTERN.matcher(refresh);
-        if (m.matches()) {
-          url2 = new URL(url, m.group(1));
-        }
-      }
-      logger.fine("Ultimate download URL: " + url2);
-      openConnection = (HttpURLConnection) url2.openConnection();
+
       openConnection.setRequestProperty("User-Agent",runtime.getUserAgent());
-      
       openConnection.setConnectTimeout(timeoutConfig.getConnectionTimeout());
       openConnection.setReadTimeout(timeoutConfig.getReadTimeout());
-      if (!cookies.isEmpty()) {
-        StringBuilder cookie = new StringBuilder();
-        for (HttpCookie c : cookies) {
-          if (cookie.length() > 0) {
-            cookie.append("; ");
-          }
-          cookie.append(c);
-        }
-        openConnection.setRequestProperty("Cookie", cookie.toString());
-      }
 
-      InputStream downloadStream = openConnection.getInputStream();
-
-      long length = openConnection.getContentLength();
+        long length = openConnection.getContentLength();
       progress.info(progressLabel, "DownloadSize: " + length);
 
       if (length == -1) length = DEFAULT_CONTENT_LENGTH;
 
 
       long downloadStartedAt = System.currentTimeMillis();
-      
-      try {
-        BufferedInputStream bis = new BufferedInputStream(downloadStream);
-        byte[] buf = new byte[BUFFER_LENGTH];
-        int read = 0;
-        long readCount = 0;
-        while ((read = bis.read(buf)) != -1) {
-          bos.write(buf, 0, read);
-          readCount = readCount + read;
-          if (readCount > length) length = readCount;
 
-          progress.progress(progressLabel, (int) (readCount * READ_COUNT_MULTIPLIER / length));
+        try (InputStream downloadStream = openConnection.getInputStream()) {
+            BufferedInputStream bis = new BufferedInputStream(downloadStream);
+            byte[] buf = new byte[BUFFER_LENGTH];
+            int read;
+            long readCount = 0;
+            while ((read = bis.read(buf)) != -1) {
+                bos.write(buf, 0, read);
+                readCount = readCount + read;
+                if (readCount > length) length = readCount;
+
+                progress.progress(progressLabel, (int) (readCount * READ_COUNT_MULTIPLIER / length));
+            }
+            progress.info(progressLabel, "downloaded with " + downloadSpeed(downloadStartedAt, length));
+        } finally {
+            bos.flush();
+            bos.close();
         }
-        progress.info(progressLabel, "downloaded with " + downloadSpeed(downloadStartedAt,length));
-      } finally {
-        downloadStream.close();
-        bos.flush();
-        bos.close();
-      }
     } else {
       throw new IOException("Can not write " + ret);
     }

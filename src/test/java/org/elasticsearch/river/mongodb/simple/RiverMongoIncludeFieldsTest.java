@@ -59,8 +59,7 @@ public class RiverMongoIncludeFieldsTest extends RiverMongoDBTestAbstract {
             mongoDB = getMongo().getDB(getDatabase());
             mongoDB.setWriteConcern(WriteConcern.REPLICAS_SAFE);
             super.createRiver(TEST_MONGODB_RIVER_INCLUDE_FIELDS_JSON, getRiver(), 3,
-                    (Object) "[\"include-field-1\", \"include-field-2\"]", (Object) getDatabase(), (Object) getCollection(),
-                    (Object) getIndex(), (Object) getDatabase());
+                    "[\"include-field-1\", \"include-field-2\"]", getDatabase(), getCollection(), getIndex(), getDatabase());
             logger.info("Start createCollection");
             mongoCollection = mongoDB.createCollection(getCollection(), null);
             Assert.assertNotNull(mongoCollection);

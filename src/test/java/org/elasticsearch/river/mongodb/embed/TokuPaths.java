@@ -58,6 +58,7 @@ public class TokuPaths extends Paths {
             throw new IllegalArgumentException("Unknown Platform " + distribution.getPlatform());
         }
 
-        return "tokumx-" + getVersionPart(distribution.getVersion()) + '-' + splatform + "-x86_64-main.tar.gz";
+        String verPart = getVersionPart(distribution.getVersion());
+        return String.format("tokumx-%s/tokumx-%s-%s-x86_64-main.tar.gz", verPart, verPart, splatform);
     }
 }

@@ -32,5 +32,6 @@ mongodb:
     use_dynamic_ports: false
 
 tokumx:
-    version: 1.5.1
+    version: 2.0.0
     use_dynamic_ports: false
+    url: https://s3.amazonaws.com/tokumx-2.0.0/tokumx-2.0.0-linux-x86_64-main.tar.gz

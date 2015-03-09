@@ -9,7 +9,7 @@ import de.flapdoodle.embed.process.io.progress.StandardConsoleProgressListener;
 
 public class TokuDownloadConfigBuilder extends de.flapdoodle.embed.process.config.store.DownloadConfigBuilder {
 
-    private static final String DEFAULT_DOWNLOAD_PATH = "http://www.tokutek.com/tokumx-for-mongodb/tokumx-community-edition-download/?file=";
+    private static final String DEFAULT_DOWNLOAD_PATH = "https://s3.amazonaws.com/";
 
     public TokuDownloadConfigBuilder packageResolverForCommand(Command command) {
         Validate.isTrue(command == Command.MongoD, "Only command de.flapdoodle.embed.mongo.Command.MongoD is currently supported");
