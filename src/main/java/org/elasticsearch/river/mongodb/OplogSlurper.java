@@ -162,22 +162,33 @@ class OplogSlurper implements Runnable {
         return oplogCursor(currentTimestamp);
     }
 
-    private Timestamp<?> processOplogEntry(final DBObject entry, final Timestamp<?> startTimestamp) throws InterruptedException {
-        // To support transactions, TokuMX wraps one or more operations in a
-        // single oplog entry, in a list.
-        // As long as clients are not transaction-aware, we can pretty safely
-        // assume there will only be one operation in the list.
-        // Supporting genuine multi-operation transactions will require a bit
-        // more logic here.
-        flattenOps(entry);
+    private Timestamp<?> processOplogEntry(final DBObject entry, final Timestamp<?> startTimestamp) throws InterruptedException, SlurperException {
+        return processOplogEntry(entry, startTimestamp, Timestamp.on(entry));
+    }
 
-        if (!isValidOplogEntry(entry, startTimestamp)) {
+    private Timestamp<?> processOplogEntry(final DBObject entry, final Timestamp<?> startTimestamp, Timestamp<?> oplogTimestamp) throws InterruptedException, SlurperException {
+        if(entry.containsField(MongoDBRiver.OPLOG_REF)) {
+            return processOplogRefs(entry, startTimestamp, oplogTimestamp);
+        } else {
+            Object ops = entry.get(MongoDBRiver.OPLOG_OPS);
+            if(ops != null) {
+                for (BasicDBObject op : (List<BasicDBObject>) ops) {
+                    oplogTimestamp = processSingleOp(op, startTimestamp, oplogTimestamp);
+                }
+            } else {
+                oplogTimestamp = processSingleOp(entry, startTimestamp, oplogTimestamp);
+            }
+            return oplogTimestamp;
+        }
+    }
+
+    private Timestamp<?> processSingleOp(final DBObject entry, final Timestamp<?> startTimestamp, final Timestamp<?> oplogTimestamp) throws InterruptedException {
+        if (!isValidOplogEntry(entry, startTimestamp, oplogTimestamp)) {
             return startTimestamp;
         }
         Operation operation = Operation.fromString(entry.get(MongoDBRiver.OPLOG_OPERATION).toString());
         String namespace = entry.get(MongoDBRiver.OPLOG_NAMESPACE).toString();
         String collection = null;
-        Timestamp<?> oplogTimestamp = Timestamp.on(entry);
         DBObject object = (DBObject) entry.get(MongoDBRiver.OPLOG_OBJECT);
 
         if (definition.isImportAllCollections()) {
@@ -203,10 +214,12 @@ class OplogSlurper implements Runnable {
             }
         }
 
-        logger.trace("namespace: {} - operation: {}", namespace, operation);
+        if(logger.isTraceEnabled())
+            logger.trace("namespace: {} - operation: {}", namespace, operation);
+
         if (namespace.equals(MongoDBRiver.OPLOG_ADMIN_COMMAND)) {
             if (operation == Operation.COMMAND) {
-                processAdminCommandOplogEntry(entry, startTimestamp);
+                processAdminCommandOplogEntry(entry);
                 return startTimestamp;
             }
         }
@@ -262,10 +275,11 @@ class OplogSlurper implements Runnable {
             }
             addToStream(operation, oplogTimestamp, applyFieldFilter(object), collection);
         } else {
-            if (operation == Operation.UPDATE) {
+            if (operation == Operation.UPDATE || operation == Operation.UPDATE_ROW) {
                 DBObject update = (DBObject) entry.get(MongoDBRiver.OPLOG_UPDATE);
                 logger.trace("Updated item: {}", update);
-                addQueryToStream(operation, oplogTimestamp, update, collection);
+                if (update != null)
+                    addQueryToStream(operation, oplogTimestamp, applyFieldFilter(update), collection);
             } else {
                 if (operation == Operation.INSERT) {
                     addInsertToStream(oplogTimestamp, applyFieldFilter(object), collection);
@@ -277,37 +291,41 @@ class OplogSlurper implements Runnable {
         return oplogTimestamp;
     }
 
-    @SuppressWarnings("unchecked")
-    private void flattenOps(DBObject entry) {
-        Object ref = entry.removeField(MongoDBRiver.OPLOG_REF);
-        Object ops = ref == null ? entry.removeField(MongoDBRiver.OPLOG_OPS) : getRefOps(ref);
-        if (ops != null) {
-            try {
-                for (DBObject op : (List<DBObject>) ops) {
-                    String operation = (String) op.get(MongoDBRiver.OPLOG_OPERATION);
-                    if (operation.equals(MongoDBRiver.OPLOG_COMMAND_OPERATION)) {
-                        DBObject object = (DBObject) op.get(MongoDBRiver.OPLOG_OBJECT);
-                        if (object.containsField(MongoDBRiver.OPLOG_CREATE_COMMAND)) {
-                            continue;
-                        }
-                    }
-                    entry.putAll(op);
+    private Timestamp<?> processOplogRefs(final DBObject entry, final Timestamp<?> timestamp, final Timestamp<?> oplogTimestamp) throws InterruptedException, SlurperException {
+        ObjectId ref = (ObjectId) entry.get(MongoDBRiver.OPLOG_REF);
+        long seq = 0;
+        if(ref != null) {
+            // Find the refs matching this oplog entry and update the docs they touch
+            // db.oplog.refs.find({_id: {$gt: {oid: id_from_oplog, seq: 0}}})
+            while(true) {
+                BasicDBObject selector = new BasicDBObject(MongoDBRiver.MONGODB_OID_FIELD, ref).append(MongoDBRiver.MONGODB_SEQ_FIELD, seq);
+                BasicDBObject query = new BasicDBObject(MongoDBRiver.MONGODB_ID_FIELD, new BasicDBObject(QueryOperators.GT, selector));
+                BasicDBObject refResult = (BasicDBObject)oplogRefsCollection.findOne(query);
+                // logger.debug("Finding refs for {}", query);
+                if(refResult == null) {
+                    logger.debug("Got no refResult for {}, breaking...", query);
+                    break;
                 }
-            } catch (ClassCastException e) {
-                logger.error(e.toString(), e);
+
+                BasicDBObject refId = (BasicDBObject)refResult.get(MongoDBRiver.MONGODB_ID_FIELD);
+                ObjectId refOid = (ObjectId)refId.get(MongoDBRiver.MONGODB_OID_FIELD);
+                if( !refOid.equals(ref) ) {
+                    // logger.debug("{} != {}, breaking oplog ref loop...", ref, refOid);
+                    break;
+                }
+
+                logger.debug("Processing oplog.refs entry: {} seq {}", ref, seq);
+
+                seq = refId.getLong(MongoDBRiver.MONGODB_SEQ_FIELD);
+                processOplogEntry(refResult, timestamp, oplogTimestamp);
             }
+            return timestamp;
+        } else {
+            throw new SlurperException("Invalid oplog entry - namespace is null, but ref field is missing");
         }
     }
 
-    private Object getRefOps(Object ref) {
-        // db.oplog.refs.find({_id: {$gte: {oid: %ref%}}}).limit(1)
-        DBObject query = new BasicDBObject(MongoDBRiver.MONGODB_ID_FIELD, new BasicDBObject(QueryOperators.GTE,
-                new BasicDBObject(MongoDBRiver.MONGODB_OID_FIELD, ref)));
-        DBObject oplog = oplogRefsCollection.findOne(query);
-        return oplog == null ? null : oplog.get("ops");
-    }
-
-    private void processAdminCommandOplogEntry(final DBObject entry, final Timestamp<?> startTimestamp) throws InterruptedException {
+    private void processAdminCommandOplogEntry(final DBObject entry) throws InterruptedException {
         if (logger.isTraceEnabled()) {
             logger.trace("processAdminCommandOplogEntry - [{}]", entry);
         }
@@ -333,7 +351,7 @@ class OplogSlurper implements Runnable {
         return null;
     }
 
-    private boolean isValidOplogEntry(final DBObject entry, final Timestamp<?> startTimestamp) {
+    private boolean isValidOplogEntry(final DBObject entry, final Timestamp<?> startTimestamp, final Timestamp<?> oplogTimestamp) {
         if (!entry.containsField(MongoDBRiver.OPLOG_OPERATION)) {
             logger.trace("[Empty Oplog Entry] - can be ignored. {}", JSONSerializers.getStrict().serialize(entry));
             return false;
@@ -356,7 +374,6 @@ class OplogSlurper implements Runnable {
         }
 
         if (startTimestamp != null) {
-            Timestamp<?> oplogTimestamp = Timestamp.on(entry);
             if (Timestamp.compare(oplogTimestamp, startTimestamp) < 0) {
                 logger.error("[Invalid Oplog Entry] - entry timestamp [{}] before startTimestamp [{}]",
                         JSONSerializers.getStrict().serialize(entry), startTimestamp);
