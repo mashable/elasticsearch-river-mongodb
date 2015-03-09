@@ -175,7 +175,6 @@ class OplogSlurper implements Runnable {
         if(entry.containsField(MongoDBRiver.OPLOG_REF)) {
             return processOplogRefs(entry, startTimestamp, oplogTimestamp);
         } else {
-            logger.debug("Full op entry: {}", entry);
             Object ops = entry.get(MongoDBRiver.OPLOG_OPS);
             if(ops != null) {
                 for (BasicDBObject op : (List<BasicDBObject>) ops) {

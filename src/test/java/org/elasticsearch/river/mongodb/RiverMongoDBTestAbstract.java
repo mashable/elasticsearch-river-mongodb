@@ -620,7 +620,7 @@ public abstract class RiverMongoDBTestAbstract {
         waitForRiverReplication(index);
     }
     protected void waitForRiverReplication(String idx) throws InterruptedException {
-        Thread.sleep(1000);
+        Thread.sleep(2000);
         if(idx != null)
             refreshIndex(idx);
     }
