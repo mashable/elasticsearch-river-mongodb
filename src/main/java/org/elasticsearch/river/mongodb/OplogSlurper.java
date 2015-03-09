@@ -275,17 +275,33 @@ class OplogSlurper implements Runnable {
             }
             addToStream(operation, oplogTimestamp, applyFieldFilter(object), collection);
         } else {
-            if (operation == Operation.UPDATE || operation == Operation.UPDATE_ROW) {
-                DBObject update = (DBObject) entry.get(MongoDBRiver.OPLOG_UPDATE);
-                logger.trace("Updated item: {}", update);
-                if (update != null)
-                    addQueryToStream(operation, oplogTimestamp, applyFieldFilter(update), collection);
-            } else {
-                if (operation == Operation.INSERT) {
+            BasicDBObject update;
+            switch (operation) {
+                case INSERT:
                     addInsertToStream(oplogTimestamp, applyFieldFilter(object), collection);
-                } else {
+                    break;
+                case UPDATE:
+                    update = (BasicDBObject)entry.get(MongoDBRiver.OPLOG_UPDATE);
+                    if (update != null) {
+                        if (definition.isTokumx) {
+                            // tokumx provides a postimage, we can just save it
+                            addToStream(operation, oplogTimestamp, applyFieldFilter(update), collection);
+                        } else {
+                            // mongo doesn't provide the postimage, so we have to query on the update
+                            addQueryToStream(operation, oplogTimestamp, update, collection);
+                        }
+                    }
+                    break;
+                case UPDATE_ROW:
+                    // If we haven't broken by now, do a normal update
+                    ObjectId updateID = ((BasicDBObject)object).getObjectId(MongoDBRiver.MONGODB_ID_FIELD, null);
+                    if (updateID != null) {
+                        update = new BasicDBObject(MongoDBRiver.MONGODB_ID_FIELD, updateID);
+                        addQueryToStream(operation, oplogTimestamp, update, collection);
+                    }
+                default:
                     addToStream(operation, oplogTimestamp, applyFieldFilter(object), collection);
-                }
+                    break;
             }
         }
         return oplogTimestamp;

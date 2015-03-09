@@ -108,6 +108,7 @@ public class MongoConfigProvider implements Callable<MongoConfig> {
             if (logger.isTraceEnabled()) {
                 logger.trace("process: {}", process);
             }
+            definition.isTokumx = cr.containsField("tokumxVersion");
             // Fix for https://jira.mongodb.org/browse/SERVER-9160
             return (process.contains("mongos"));
         }
