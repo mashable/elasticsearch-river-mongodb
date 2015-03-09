@@ -80,10 +80,9 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
     public static final String MONGODB_ID_FIELD = "_id";
     public static final String MONGODB_OID_FIELD = "oid";
     public static final String MONGODB_SEQ_FIELD = "seq";
-    public static final String MONGODB_IN_OPERATOR = "$in";
-    public static final String MONGODB_OR_OPERATOR = "$or";
-    public static final String MONGODB_AND_OPERATOR = "$and";
-    public static final String MONGODB_NATURAL_OPERATOR = "$natural";
+    public final static String OPLOG_MODS = "m";
+    public final static String OP_UNSET = "$unset";
+    public final static String OP_MAGIC_SKIP = "__es_skip";
     public static final String OPLOG_COLLECTION = "oplog.rs";
     public static final String OPLOG_REFS_COLLECTION = "oplog.refs";
     public static final String OPLOG_NAMESPACE = "ns";

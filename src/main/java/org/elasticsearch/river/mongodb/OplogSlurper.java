@@ -470,12 +470,16 @@ class OplogSlurper implements Runnable {
             }
         }
         if (!validNamespace) {
-            logger.trace("[Invalid Oplog Entry] - namespace [{}] is not valid", namespace);
+            // logger.trace("[Invalid Oplog Entry] - namespace [{}] is not valid", namespace);
             return false;
         }
         String operation = (String) entry.get(MongoDBRiver.OPLOG_OPERATION);
         if (!oplogOperations.contains(operation)) {
-            logger.trace("[Invalid Oplog Entry] - operation [{}] is not valid", operation);
+            // logger.trace("[Invalid Oplog Entry] - operation [{}] is not valid", operation);
+            return false;
+        }
+
+        if(explicitSkip(entry)) {
             return false;
         }
 
@@ -501,6 +505,19 @@ class OplogSlurper implements Runnable {
             }
         }
         return true;
+    }
+
+    private boolean explicitSkip(DBObject object) {
+        if(object.containsField(MongoDBRiver.OPLOG_MODS)) {
+            DBObject modifiers = (DBObject)object.get(MongoDBRiver.OPLOG_MODS);
+            if (modifiers.containsField(MongoDBRiver.OP_UNSET)) {
+                DBObject unsets = (DBObject)modifiers.get(MongoDBRiver.OP_UNSET);
+                if(unsets.containsField(MongoDBRiver.OP_MAGIC_SKIP)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private DBObject applyFieldFilter(DBObject object) {

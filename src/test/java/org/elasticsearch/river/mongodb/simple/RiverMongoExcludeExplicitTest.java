@@ -76,11 +76,10 @@ public class RiverMongoExcludeExplicitTest extends RiverMongoDBTestAbstract {
             DBObject dbObject = new BasicDBObject();
             dbObject.put("field-1", 1);
             mongoCollection.insert(dbObject);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             String id = dbObject.get("_id").toString();
             assertThat(getNode().client().admin().indices().exists(new IndicesExistsRequest(getIndex())).actionGet().isExists(), equalTo(true));
-            refreshIndex();
 
             SearchResponse sr = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString(id).defaultField("_id")).get();
             logger.debug("SearchResponse {}", sr.toString());
@@ -98,7 +97,7 @@ public class RiverMongoExcludeExplicitTest extends RiverMongoDBTestAbstract {
             DBObject finder = BasicDBObjectBuilder.start("_id", dbObject.get("_id")).get();
             DBObject updates = (DBObject) JSON.parse("{$set: {'field-1': 2}}");
             mongoCollection.update(finder, updates);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             sr = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString(id).defaultField("_id")).get();
             logger.debug("SearchResponse {}", sr.toString());
@@ -112,7 +111,7 @@ public class RiverMongoExcludeExplicitTest extends RiverMongoDBTestAbstract {
             // Ensure that skipped updates work
             updates = (DBObject) JSON.parse("{$set: {'field-1': 3}, $unset: {__es_skip: 1}}");
             mongoCollection.update(finder, updates);
-            Thread.sleep(wait);
+            waitForRiverReplication();
 
             sr = getNode().client().prepareSearch(getIndex()).setQuery(QueryBuilders.queryString(id).defaultField("_id")).get();
             logger.debug("SearchResponse {}", sr.toString());
