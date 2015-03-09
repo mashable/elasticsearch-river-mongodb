@@ -239,7 +239,7 @@ class OplogSlurper implements Runnable {
         }
 
         if (definition.isMongoGridFS() && namespace.endsWith(MongoDBRiver.GRIDFS_FILES_SUFFIX)
-                && (operation == Operation.INSERT || operation == Operation.UPDATE)) {
+                && (operation == Operation.INSERT || operation == Operation.UPDATE || operation == Operation.UPDATE_ROW)) {
             if (objectId == null) {
                 throw new NullPointerException(MongoDBRiver.MONGODB_ID_FIELD);
             }
@@ -262,8 +262,8 @@ class OplogSlurper implements Runnable {
             }
             addToStream(operation, oplogTimestamp, applyFieldFilter(object), collection);
         } else {
-            if (operation == Operation.UPDATE) {
-                DBObject update = (DBObject) entry.get(MongoDBRiver.OPLOG_UPDATE);
+            if (operation == Operation.UPDATE || operation == Operation.UPDATE_ROW) {
+                DBObject update = (DBObject) entry.get(operation.getValue());
                 logger.trace("Updated item: {}", update);
                 addQueryToStream(operation, oplogTimestamp, update, collection);
             } else {
