@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 
 import org.bson.types.BasicBSONList;
 import org.elasticsearch.action.search.SearchResponse;
@@ -63,27 +64,47 @@ class Indexer implements Runnable {
         while (context.getStatus() == Status.RUNNING) {
 
             try {
-                Timestamp<?> lastTimestamp = null;
+                Timestamp<?> lastTimestamp;
 
                 // 1. Attempt to fill as much of the bulk request as possible
                 QueueEntry entry = context.getStream().take();
                 lastTimestamp = processBlockingQueue(entry);
+                long count = 1;
                 while ((entry = context.getStream().poll(definition.getBulk().getFlushInterval().millis(), MILLISECONDS)) != null) {
-                    lastTimestamp = processBlockingQueue(entry);
+                    lastTimestamp = processEntry(entry);
+                    if(count % 5000 == 0) {
+                        updateTimestamp(lastTimestamp, "processed 5k records");
+                    }
+                    count++;
+                    if(count == 1e20) {
+                        count = 0;
+                    }
                 }
-
-                // 2. Update the timestamp
-                if (lastTimestamp != null) {
-                    MongoDBRiver.setLastTimestamp(definition, lastTimestamp,
-                            getBulkProcessor(definition.getIndexName(), definition.getTypeName()).getBulkProcessor());
-                }
-
+                updateTimestamp(lastTimestamp, "reached end of stream");
             } catch (InterruptedException e) {
                 logger.info("river-mongodb indexer interrupted");
                 releaseProcessors();
                 Thread.currentThread().interrupt();
                 break;
             }
+        }
+    }
+
+    private Timestamp<?> processEntry(QueueEntry entry) {
+        Timestamp<?> timestamp = processBlockingQueue(entry);
+        if(entry.getOperation() == Operation.UPDATE_TIMESTAMP) {
+            updateTimestamp(timestamp, "got UPDATE_TIMESTAMP");
+            return null;
+        } else {
+            return timestamp;
+        }
+    }
+
+    private void updateTimestamp(Timestamp<?> timestamp, String reason) {
+        if(timestamp != null) {
+            logger.debug("Updating timestamp: {} - {}", timestamp, reason);
+            MongoDBRiver.setLastTimestamp(definition, timestamp,
+                    getBulkProcessor(definition.getIndexName(), definition.getTypeName()).getBulkProcessor());
         }
     }
 
@@ -107,7 +128,7 @@ class Indexer implements Runnable {
     private Timestamp<?> processBlockingQueue(QueueEntry entry) {
         Operation operation = entry.getOperation();
         if (entry.getData().get(MongoDBRiver.MONGODB_ID_FIELD) == null
-                && (operation == Operation.INSERT || operation == Operation.UPDATE || operation == Operation.DELETE)) {
+                && (operation == Operation.INSERT || operation == Operation.UPDATE || operation == Operation.UPDATE_ROW || operation == Operation.DELETE)) {
             logger.warn("Cannot get object id. Skip the current item: [{}]", entry.getData());
             return null;
         }
