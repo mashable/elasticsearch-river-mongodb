@@ -73,7 +73,6 @@ import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.CommandResult;
 import com.mongodb.DB;
-import com.mongodb.DBObject;
 import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
@@ -110,17 +109,11 @@ public abstract class RiverMongoDBTestAbstract {
             private ServerAddress address;
         }
 
-        private final ExecutableType type;
-        private final String version;
         public final Mongo mongo;
-        private final DB mongoAdminDB;
         private final ImmutableList<Member> members;
 
         public MongoReplicaSet(ExecutableType type, String version, Mongo mongo, DB mongoAdminDB, ImmutableList<Member> members) {
-            this.type = type;
-            this.version = version;
             this.mongo = mongo;
-            this.mongoAdminDB = mongoAdminDB;
             this.members = members;
         }
     }
@@ -186,12 +179,11 @@ public abstract class RiverMongoDBTestAbstract {
 
     public static final String ADMIN_DATABASE_NAME = "admin";
     public static final String LOCAL_DATABASE_NAME = "local";
-    //public static final String REPLICA_SET_NAME = "rep1";
     public static final String OPLOG_COLLECTION = "oplog.rs";
 
     private static Settings settings = loadSettings();
     private static EnumMap<ExecutableType, MongoReplicaSet> replicaSets =
-            new EnumMap<RiverMongoDBTestAbstract.ExecutableType, RiverMongoDBTestAbstract.MongoReplicaSet>(ExecutableType.class);
+            new EnumMap<>(ExecutableType.class);
     private static Node node;
 
     protected final ExecutableType executableType;
@@ -303,7 +295,7 @@ public abstract class RiverMongoDBTestAbstract {
 
         // Initialize replica set
         cr = mongoAdminDB.command(new BasicDBObject("replSetInitiate",
-                (DBObject) JSON.parse("{'_id': '" + replicaSetName + "', 'members': ["
+                JSON.parse("{'_id': '" + replicaSetName + "', 'members': ["
                 + "{'_id': 0, 'host': '" + members.get(0).address.getHost() + ':' + members.get(0).address.getPort() + "'}, "
                 + "{'_id': 1, 'host': '" + members.get(1).address.getHost() + ':' + members.get(1).address.getPort() + "'}, "
                 + "{'_id': 2, 'host': '" + members.get(2).address.getHost() + ':' + members.get(2).address.getPort() + "', 'arbiterOnly' : true}]} }")));
@@ -322,16 +314,15 @@ public abstract class RiverMongoDBTestAbstract {
         }
 
         mongo.close();
-        mongo = null;
 
         // Initialize a new client using all instances.
-        List<ServerAddress> mongoServers = new ArrayList<ServerAddress>();
+        List<ServerAddress> mongoServers = new ArrayList<>();
         for (MongoReplicaSet.Member member : members) {
             mongoServers.add(member.address);
         }
         mongo = new MongoClient(mongoServers, mco);
         Assert.assertNotNull(mongo);
-        mongo.setReadPreference(ReadPreference.secondaryPreferred());
+        mongo.setReadPreference(ReadPreference.primaryPreferred());
         mongo.setWriteConcern(WriteConcern.REPLICAS_SAFE);
         replicaSets.put(type, new MongoReplicaSet(type, rsSettings.get("version"), mongo, mongoAdminDB, members));
     }
