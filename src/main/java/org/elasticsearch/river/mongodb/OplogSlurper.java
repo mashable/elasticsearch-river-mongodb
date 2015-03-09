@@ -1,6 +1,9 @@
 package org.elasticsearch.river.mongodb;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.bson.BasicBSONObject;
@@ -58,6 +61,7 @@ class OplogSlurper implements Runnable {
     private final DB oplogDb;
     private final DBCollection oplogCollection, oplogRefsCollection;
     private final AtomicLong totalDocuments = new AtomicLong();
+    private HashMap<String, ArrayList<String>> pkCache;
 
     public OplogSlurper(Timestamp<?> timestamp, MongoClient mongoClusterClient, MongoClient mongoShardClient, MongoDBRiverDefinition definition, SharedContext context, Client esClient) {
         this.timestamp = timestamp;
@@ -69,6 +73,7 @@ class OplogSlurper implements Runnable {
         this.findKeys = new BasicDBObject();
         this.gridfsOplogNamespace = definition.getMongoOplogNamespace() + MongoDBRiver.GRIDFS_FILES_SUFFIX;
         this.cmdOplogNamespace = definition.getMongoDb() + "." + MongoDBRiver.OPLOG_NAMESPACE_COMMAND;
+        this.pkCache = new HashMap<String, ArrayList<String>>();
         if (definition.getExcludeFields() != null) {
             for (String key : definition.getExcludeFields()) {
                 findKeys.put(key, 0);
@@ -170,6 +175,7 @@ class OplogSlurper implements Runnable {
         if(entry.containsField(MongoDBRiver.OPLOG_REF)) {
             return processOplogRefs(entry, startTimestamp, oplogTimestamp);
         } else {
+            logger.debug("Full op entry: {}", entry);
             Object ops = entry.get(MongoDBRiver.OPLOG_OPS);
             if(ops != null) {
                 for (BasicDBObject op : (List<BasicDBObject>) ops) {
@@ -224,20 +230,6 @@ class OplogSlurper implements Runnable {
             }
         }
 
-        if (logger.isTraceEnabled()) {
-            String deserialized = object.toString();
-            if (deserialized.length() < 400) {
-                logger.trace("MongoDB object deserialized: {}", deserialized);
-            } else {
-                logger.trace("MongoDB object deserialized is {} characters long", deserialized.length());
-            }
-            logger.trace("collection: {}", collection);
-            logger.trace("oplog entry - namespace [{}], operation [{}]", namespace, operation);
-            if (deserialized.length() < 400) {
-                logger.trace("oplog processing item {}", entry);
-            }
-        }
-
         String objectId = getObjectIdFromOplogEntry(entry);
         if (operation == Operation.DELETE) {
             // Include only _id in data, as vanilla MongoDB does, so
@@ -276,7 +268,6 @@ class OplogSlurper implements Runnable {
             addToStream(operation, oplogTimestamp, applyFieldFilter(object), collection);
         } else {
             BasicDBObject update;
-            logger.debug("Log operation: {}, {}", operation, entry);
             switch (operation) {
                 case INSERT:
                     addInsertToStream(oplogTimestamp, applyFieldFilter(object), collection);
@@ -285,7 +276,17 @@ class OplogSlurper implements Runnable {
                 case UPDATE_ROW:
                     update = (BasicDBObject)entry.get(MongoDBRiver.OPLOG_UPDATE);
                     // Under tokumx, o2 will be null for UPDATE_ROW. Instead we want to query for the doc ID
-                    if (update == null) {
+                    if (update == null && object == null) {
+                        // tokumx 2.0.0 UPDATE_ROW; pk and m are present, o and o2 are not.
+                        BasicDBObject pk = (BasicDBObject)entry.get("pk");
+                        if (pk != null) {
+                            BasicDBObject selector = mapPKFields(collection, pk);
+                            if (selector != null) {
+                                addQueryToStream(operation, oplogTimestamp, selector, collection);
+                                break;
+                            }
+                        }
+                    } else if (update == null) {
                         ObjectId updateID = ((BasicDBObject)object).getObjectId(MongoDBRiver.MONGODB_ID_FIELD, null);
                         if (updateID != null) {
                             update = new BasicDBObject(MongoDBRiver.MONGODB_ID_FIELD, updateID);
@@ -305,6 +306,55 @@ class OplogSlurper implements Runnable {
             }
         }
         return oplogTimestamp;
+    }
+
+
+    // Tokumx doesn't provide key names in the `pk` field. We'll have to map them from the collection ourselves.
+    private BasicDBObject mapPKFields(String namespace, BasicDBObject pk) {
+        ArrayList<String> map = getPKMapFor(namespace);
+        if (map == null) return null;
+
+        BasicDBObject selector = new BasicDBObject();
+        int index = map.size() - pk.size();
+        for(Map.Entry<String, Object> entry : pk.entrySet()) {
+            selector.append(map.get(index), entry.getValue());
+            index++;
+        }
+        return selector;
+    }
+
+    private ArrayList<String> getPKMapFor(String namespace) {
+        if(!pkCache.containsKey(namespace)) {
+            List<DBObject> indexes = slurpedDb.getCollection(namespace).getIndexInfo();
+            BasicDBObject idKey = null;
+            BasicDBObject pkKey = null;
+            for(DBObject idx : indexes) {
+                if(idx.get("name").equals("primaryKey")) {
+                    pkKey = (BasicDBObject)idx.get("key");
+                } else if (idx.get("name").equals("_id_")) {
+                    idKey = (BasicDBObject)idx.get("key");
+                }
+            }
+            ArrayList<String> keys = new ArrayList<String>();
+            if (pkKey != null) {
+                for (Map.Entry<String, Object> entry : pkKey.entrySet()) {
+                    keys.add(entry.getKey());
+                }
+            } else if (idKey != null) {
+                for (Map.Entry<String, Object> entry : idKey.entrySet()) {
+                    keys.add(entry.getKey());
+                }
+            }
+            if (keys.size() != 0) {
+                pkCache.put(namespace, keys);
+            }
+            logger.debug("pkcache for {}: {}", namespace, keys);
+        }
+        if(pkCache.containsKey(namespace)) {
+            return pkCache.get(namespace);
+        } else {
+            return null;
+        }
     }
 
     private Timestamp<?> processOplogRefs(final DBObject entry, final Timestamp<?> timestamp, final Timestamp<?> oplogTimestamp) throws InterruptedException, SlurperException {

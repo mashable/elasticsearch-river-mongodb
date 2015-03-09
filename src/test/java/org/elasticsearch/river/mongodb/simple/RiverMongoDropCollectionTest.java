@@ -128,9 +128,11 @@ public class RiverMongoDropCollectionTest extends RiverMongoDBTestAbstract {
             assertThat(getNode().client().admin().indices().prepareTypesExists(getIndex()).setTypes(getDatabase()).execute().actionGet()
                     .isExists(), equalTo(true));
             String collectionName = mongoCollection.getName();
-            long countRequest = getNode().client().count(countRequest(getIndex())).actionGet().getCount();
+            long countRequest;
             mongoCollection.drop();
-            Thread.sleep(wait);
+            for(int i = 0; i < 5; i++)
+                if(!mongoDB.collectionExists(collectionName)) break;
+                Thread.sleep(wait);
             assertThat(mongoDB.collectionExists(collectionName), equalTo(false));
             Thread.sleep(wait);
             refreshIndex();

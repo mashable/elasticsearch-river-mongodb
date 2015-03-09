@@ -57,8 +57,10 @@ public class RiverMongoIncludeCollectionTest extends RiverMongoDBTestAbstract {
         try {
             mongoDB = getMongo().getDB(getDatabase());
             mongoDB.setWriteConcern(WriteConcern.REPLICAS_SAFE);
-            super.createRiver(TEST_SIMPLE_MONGODB_RIVER_INCLUDE_COLLECTION_JSON, getRiver(), 3, (Object) includeCollectionOption,
-                    (Object) getDatabase(), (Object) getCollection(), (Object) getIndex(), (Object) getDatabase());
+            super.createRiver(
+                    TEST_SIMPLE_MONGODB_RIVER_INCLUDE_COLLECTION_JSON, getRiver(), 3, includeCollectionOption,
+                    getDatabase(), getCollection(),  getIndex(), getDatabase());
+
             logger.info("Start createCollection");
             mongoCollection = mongoDB.createCollection(getCollection(), null);
             Assert.assertNotNull(mongoCollection);
