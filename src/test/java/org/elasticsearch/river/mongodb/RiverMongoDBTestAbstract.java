@@ -437,6 +437,7 @@ public abstract class RiverMongoDBTestAbstract {
         node.client().prepareIndex("_river", river, "_meta").setSource(settings).execute().actionGet();
         waitForGreenStatus();
         GetResponse response = getNode().client().prepareGet("_river", river, "_meta").execute().actionGet();
+        logger.info("_meta: {}", response);
         assertThat(response.isExists(), equalTo(true));
         int count = 0;
         while (true) {
@@ -446,7 +447,7 @@ public abstract class RiverMongoDBTestAbstract {
             } else {
                 logger.debug("Wait for river [{}] to start", river);
             }
-            if (count == 5) {
+            if (count == 60) {
                 throw new Exception(String.format("Fail to create and start river %s", river));
             }
             Thread.sleep(1000);

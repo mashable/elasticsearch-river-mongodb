@@ -22,6 +22,7 @@ import static org.elasticsearch.client.Requests.indexRequest;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -104,7 +105,6 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
     public static final String OPLOG_TIMESTAMP = "ts";
     public static final String OPLOG_FROM_MIGRATE = "fromMigrate";
     public static final String OPLOG_OPS = "ops";
-    public static final String OPLOG_CREATE_COMMAND = "create";
     public static final String OPLOG_REF = "ref";
     public static final String GRIDFS_FILES_SUFFIX = ".files";
     public static final String GRIDFS_CHUNKS_SUFFIX = ".chunks";
@@ -113,7 +113,7 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
     static final int MONGODB_RETRY_ERROR_DELAY_MS = 10_000;
     private static final ESLogger logger = ESLoggerFactory.getLogger(MongoDBRiver.class.getName());
 
-    protected final MongoDBRiverDefinition definition;
+    protected MongoDBRiverDefinition definition;
     protected final Client esClient;
     protected final ScriptService scriptService;
     protected final SharedContext context;
@@ -122,8 +122,10 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
     protected volatile Thread startupThread;
     protected volatile Thread indexerThread;
     protected volatile Thread statusThread;
-
     private final MongoClientService mongoClientService;
+
+    protected RiverSettings settings;
+    private String riverIndexName;
 
     @Inject
     public MongoDBRiver(RiverName riverName, RiverSettings settings, @RiverIndexName String riverIndexName,
@@ -132,10 +134,12 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
         if (logger.isTraceEnabled()) {
             logger.trace("Initializing river : [{}]", riverName.getName());
         }
+        this.settings = settings;
         this.esClient = esClient;
         this.scriptService = scriptService;
         this.mongoClientService = mongoClientService;
-        this.definition = MongoDBRiverDefinition.parseSettings(riverName.name(), riverIndexName, settings, scriptService);
+        this.riverIndexName = riverIndexName;
+        updateDefinition(true);
 
         BlockingQueue<QueueEntry> stream = definition.getThrottleSize() == -1 ? new LinkedTransferQueue<QueueEntry>()
                 : new ArrayBlockingQueue<QueueEntry>(definition.getThrottleSize());
@@ -146,7 +150,7 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
     @Override
     public void start() {
         // http://stackoverflow.com/questions/5270611/read-maven-properties-file-inside-jar-war-file
-        logger.info("{} - {}", DESCRIPTION, MongoDBHelper.getRiverVersion());
+        logger.info("Start River: {} - {}", DESCRIPTION, MongoDBHelper.getRiverVersion());
 
         Status status = MongoDBRiverHelper.getRiverStatus(esClient, riverName.getName());
         if (status == Status.IMPORT_FAILED || status == Status.INITIAL_IMPORT_FAILED || status == Status.SCRIPT_IMPORT_FAILED
@@ -263,6 +267,7 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
                     }
 
                     Timestamp startTimestamp = null;
+                    // TODO: startTimestamp is never used. What's this for?
                     if (definition.getInitialTimestamp() != null) {
                         startTimestamp = definition.getInitialTimestamp();
                     } else if (getLastProcessedTimestamp() != null) {
@@ -351,7 +356,6 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
             }
             for (Thread thread : tailerThreads) {
                 thread.interrupt();
-                thread = null;
             }
             tailerThreads.clear();
             if (indexerThread != null) {
@@ -468,6 +472,56 @@ public class MongoDBRiver extends AbstractRiverComponent implements River {
             }
         }
         return 0;
+    }
+
+    public boolean updateDefinition() {
+        return updateDefinition(false);
+    }
+
+    public boolean updateDefinition(boolean force) {
+        boolean changed = false;
+
+        GetResponse req = esClient.prepareGet("_river", riverName.getName(), "_meta").get();
+        Map<String, Object> settings = req.getSourceAsMap();
+        if (force || !deepCompare(this.settings.settings(), settings)) {
+            logger.info("old settings: {}", this.settings.settings());
+            logger.info("new settings: {}", settings);
+            changed = true;
+            RiverSettings newSettings = new RiverSettings(this.settings.globalSettings(), settings);
+            this.settings = newSettings;
+            this.definition = MongoDBRiverDefinition.parseSettings(riverName.name(), riverIndexName, newSettings, scriptService);
+        }
+
+        return changed;
+    }
+
+    private boolean deepCompare(Object o1, Object o2) {
+        if(o1.getClass().equals(o2.getClass())) {
+            if(o1 instanceof Map) {
+                Map<String, Object> m1 = (Map<String, Object>) o1;
+                Map<String, Object> m2 = (Map<String, Object>) o2;
+                for(String key : m1.keySet()) {
+                    if(!deepCompare(m1.get(key), m2.get(key))) {
+                        return false;
+                    }
+                }
+                return true;
+            } else if (o1 instanceof ArrayList) {
+                ArrayList a1 = (ArrayList)o1;
+                ArrayList a2 = (ArrayList)o2;
+                if(a1.size() != a2.size()) { return false; }
+                for(int i = 0; i < a1.size(); i++) {
+                    if(!deepCompare(a1.get(i), a2.get(i))) {
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                return o1.equals(o2);
+            }
+        } else {
+            return false;
+        }
     }
 
     protected static class QueueEntry {

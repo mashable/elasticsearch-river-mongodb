@@ -222,11 +222,9 @@ class OplogSlurper implements Runnable {
         if(logger.isTraceEnabled())
             logger.trace("namespace: {} - operation: {}", namespace, operation);
 
-        if (namespace.equals(MongoDBRiver.OPLOG_ADMIN_COMMAND)) {
-            if (operation == Operation.COMMAND) {
-                processAdminCommandOplogEntry(entry);
-                return startTimestamp;
-            }
+        if (namespace.equals(MongoDBRiver.OPLOG_ADMIN_COMMAND) && operation == Operation.COMMAND) {
+            processAdminCommandOplogEntry(entry);
+            return startTimestamp;
         }
 
         String objectId = getObjectIdFromOplogEntry(entry);

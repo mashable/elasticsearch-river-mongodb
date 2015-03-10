@@ -25,12 +25,24 @@ class StatusChecker implements Runnable {
                 if (status != this.context.getStatus()) {
                     if (status == Status.RUNNING && this.context.getStatus() != Status.STARTING) {
                         logger.trace("About to start river: {}", this.definition.getRiverName());
+                        mongoDBRiver.internalStopRiver();
                         mongoDBRiver.internalStartRiver();
                     } else if (status == Status.STOPPED) {
                         logger.info("About to stop river: {}", this.definition.getRiverName());
                         mongoDBRiver.internalStopRiver();
                      }
                 }
+
+                if(this.mongoDBRiver.updateDefinition()) {
+                    logger.info("Definition changed, restarting river: {}", this.definition.getRiverName());
+                    try {
+                        mongoDBRiver.internalStopRiver();
+                        mongoDBRiver.internalStartRiver();
+                    } catch (Exception e) {
+                        logger.info("Exception when restarting river: {}", e);
+                    }
+                }
+
                 Thread.sleep(1000L);
             } catch (InterruptedException e) {
                 logger.debug("Status thread interrupted", e, (Object) null);
