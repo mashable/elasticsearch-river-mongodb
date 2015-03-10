@@ -37,6 +37,11 @@ mongoDBRiverApp.controller('MainCtrl', function ($log, $scope, $resource, $timeo
 	  }
   }
 
+  $scope.lag = function(timestamp) {
+      var lag = new Date() - new Date(timestamp);
+      return lag / 60000;
+  }
+
   function autoRefresh() {
       timeoutId = $timeout(function() {
         $scope.list();
