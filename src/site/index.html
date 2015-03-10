@@ -38,9 +38,9 @@
                   </div>
                   <div class="panel-body">
                       <ul>
-                          <li>Last Replicated - {{ river.lastTimestamp | date:'yyyy-MM-dd HH:mm:ss Z' }}</li>
+                          <li>Last Replicated: {{ river.lastTimestamp | date:'yyyy-MM-dd HH:mm:ss Z' }}</li>
                           <li>Lagged By: {{ lag(river.lastTimestamp) | number:1 }} minutes</li>
-                          <li>Documents Indexed - {{ river.indexCount }}</li>
+                          <li>Documents Indexed: {{ river.indexCount }}</li>
                       </ul>
                     <pre>Settings:<br /><br />{{ toString(river.settings) }}</pre>
                     <span x-ng-if="river.status == 'RUNNING'" class="btn btn-small btn-danger" x-ng-click="stop(river.name)">Stop</span>
