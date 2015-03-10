@@ -39,8 +39,9 @@ public class MongoConfigProvider implements Callable<MongoConfig> {
 
     @Override
     public MongoConfig call() {
-        ensureIsReplicaSet();
         boolean isMongos = isMongos();
+        if(!isMongos)
+            ensureIsReplicaSet();
         List<Shard> shards = getShards(isMongos);
         MongoConfig config = new MongoConfig(isMongos, shards);
         return config;
