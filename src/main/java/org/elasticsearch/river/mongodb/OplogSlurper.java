@@ -360,13 +360,14 @@ class OplogSlurper implements Runnable {
         if(ref != null) {
             // Find the refs matching this oplog entry and update the docs they touch
             // db.oplog.refs.find({_id: {$gt: {oid: id_from_oplog, seq: 0}}})
+            // db.oplog.refs.find({"_id.oid": ObjectId("5564b20d996b5d1f5a753633"), "_id.seq": {$gt: 0} })
             while(true) {
-                BasicDBObject selector = new BasicDBObject(MongoDBRiver.MONGODB_OID_FIELD, ref).append(MongoDBRiver.MONGODB_SEQ_FIELD, seq);
-                BasicDBObject query = new BasicDBObject(MongoDBRiver.MONGODB_ID_FIELD, new BasicDBObject(QueryOperators.GT, selector));
-                BasicDBObject refResult = (BasicDBObject)oplogRefsCollection.findOne(query);
+                BasicDBObject selector = new BasicDBObject("_id.".concat(MongoDBRiver.MONGODB_OID_FIELD), ref).append("_id.".concat(MongoDBRiver.MONGODB_SEQ_FIELD), new BasicDBObject(QueryOperators.GT, seq));
+                // BasicDBObject query = new BasicDBObject(MongoDBRiver.MONGODB_ID_FIELD, new BasicDBObject(QueryOperators.GT, selector));
+                BasicDBObject refResult = (BasicDBObject)oplogRefsCollection.findOne(selector);
                 // logger.debug("Finding refs for {}", query);
                 if(refResult == null) {
-                    logger.debug("Got no refResult for {}, breaking...", query);
+                    logger.debug("Got no refResult for {}, breaking...", selector);
                     break;
                 }
 
@@ -605,10 +606,9 @@ class OplogSlurper implements Runnable {
 
     private void addQueryToStream(final Operation operation, final Timestamp<?> currentTimestamp, final DBObject update,
                 final String collection, final DBCollection slurpedCollection) throws InterruptedException {
-        try (DBCursor cursor = slurpedCollection.find(update, findKeys)) {
-            for (DBObject item : cursor) {
-                addToStream(operation, currentTimestamp, item, collection);
-            }
+        DBObject item = slurpedCollection.findOne(update, findKeys);
+        if(item != null) {
+            addToStream(operation, currentTimestamp, item, collection);
         }
     }
 
